@@ -3,12 +3,13 @@ import csv
 import imageio
 import numpy as np
 from keras.layers import Flatten, Dense
-from keras.models import Sequential
 from keras.layers import Lambda
+from keras.models import Sequential
 
 lines = []
 images = []
 measurements = []
+correction = 0.2
 
 with open('./data/driving_log.csv') as csvfile:
     reader = csv.reader(csvfile)
@@ -16,11 +17,23 @@ with open('./data/driving_log.csv') as csvfile:
         lines.append(line)
 lines.pop(0)
 
-for line in lines:
-    path = './data/' + line[0]
-    image = imageio.imread(path)
+
+def add_img(img_path, measurement):
+    image = imageio.imread(img_path)
+    image_flipped = np.fliplr(image)
     images.append(image)
-    measurements.append(float(line[3]))
+    images.append(image_flipped)
+
+    measurements.append(measurement)
+    measurements.append(-measurement)
+
+
+for line in lines:
+    measurement = float(line[3])
+    path = './data/'
+    add_img(path + line[0], measurement)
+    add_img(path + line[1].strip(), measurement+correction)
+    add_img(path + line[2].strip(), measurement-correction)
 
 print(len(images))
 print(len(measurements))
