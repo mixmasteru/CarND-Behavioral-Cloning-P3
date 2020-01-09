@@ -1,10 +1,13 @@
 import csv
+from math import ceil
 
 import imageio
 import numpy as np
-from keras.layers import Flatten, Dense
+from keras.layers import Flatten, Dense, Conv2D, AveragePooling2D, Cropping2D
 from keras.layers import Lambda
 from keras.models import Sequential
+import sklearn
+from sklearn.model_selection import train_test_split
 
 lines = []
 images = []
@@ -28,25 +31,75 @@ def add_img(img_path, measurement):
     measurements.append(-measurement)
 
 
-for line in lines:
-    measurement = float(line[3])
-    path = './data/'
-    add_img(path + line[0], measurement)
-    add_img(path + line[1].strip(), measurement+correction)
-    add_img(path + line[2].strip(), measurement-correction)
+def generator(samples, batch_size=32):
+    num_samples = len(samples)
+    while 1:  # Loop forever so the generator never terminates
+        sklearn.utils.shuffle(samples)
+        for offset in range(0, num_samples, batch_size):
+            batch_samples = samples[offset:offset + batch_size]
 
-print(len(images))
-print(len(measurements))
+            images = []
+            angles = []
+            for batch_sample in batch_samples:
+                name = './data/IMG/' + batch_sample[0].split('/')[-1]
+                center_image = imageio.imread(name)
+                center_angle = float(batch_sample[3])
+                images.append(center_image)
+                angles.append(center_angle)
 
-X_train = np.array(images)
-y_train = np.array(measurements)
+            # trim image to only see section with road
+            X_train = np.array(images)
+            y_train = np.array(angles)
+            yield sklearn.utils.shuffle(X_train, y_train)
+
+
+def simple_model():
+    for line in lines:
+        measurement = float(line[3])
+        path = './data/'
+        add_img(path + line[0], measurement)
+        add_img(path + line[1].strip(), measurement + correction)
+        add_img(path + line[2].strip(), measurement - correction)
+
+    print(len(images))
+    print(len(measurements))
+    X_train = np.array(images)
+    y_train = np.array(measurements)
+
+    model = Sequential()
+    model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(160, 320, 3)))
+    model.add(Flatten(input_shape=(160, 320, 3)))
+    model.add(Dense(1))
+    model.compile(loss='mse', optimizer='adam')
+    model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=2)
+    model.save('model.h5')
+
+
+train_samples, validation_samples = train_test_split(lines, test_size=0.2)
+
+ch, row, col = 3, 80, 320  # Trimmed image format
+# Set our batch size
+batch_size = 32
+# compile and train the model using the generator function
+train_generator = generator(train_samples, batch_size=batch_size)
+validation_generator = generator(validation_samples, batch_size=batch_size)
 
 model = Sequential()
-model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(160, 320, 3)))
-model.add(Flatten(input_shape=(160, 320, 3)))
+model.add(Cropping2D(cropping=((50, 20), (0, 0)), input_shape=(160, 320, 3)))
+model.add(Lambda(lambda x: x / 127.5 - 1., input_shape=(90, 320, 3), output_shape=(90, 320, 3)))
+model.add(Conv2D(filters=6, kernel_size=(3, 3), activation='relu', input_shape=(90, 320, 3)))
+model.add(AveragePooling2D())
+model.add(Conv2D(filters=16, kernel_size=(3, 3), activation='relu'))
+model.add(AveragePooling2D())
+model.add(Flatten())
+model.add(Dense(units=120, activation='relu'))
+model.add(Dense(units=84, activation='relu'))
+model.add(Dense(units=10, activation='softmax'))
 model.add(Dense(1))
 
 model.compile(loss='mse', optimizer='adam')
-model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=2)
-
+# model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=2)
+model.fit_generator(train_generator, steps_per_epoch=ceil(len(train_samples) / batch_size),
+                    validation_data=validation_generator, validation_steps=ceil(len(validation_samples) / batch_size),
+                    epochs=5, verbose=1)
 model.save('model.h5')
