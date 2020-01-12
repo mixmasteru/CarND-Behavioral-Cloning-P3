@@ -75,9 +75,39 @@ def simple_model():
     model.save('model.h5')
 
 
-train_samples, validation_samples = train_test_split(lines, test_size=0.2)
+def lenet5_model():
+    train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
-ch, row, col = 3, 80, 320  # Trimmed image format
+    ch, row, col = 3, 80, 320  # Trimmed image format
+    # Set our batch size
+    batch_size = 32
+    # compile and train the model using the generator function
+    train_generator = generator(train_samples, batch_size=batch_size)
+    validation_generator = generator(validation_samples, batch_size=batch_size)
+
+    model = Sequential()
+    model.add(Cropping2D(cropping=((50, 20), (0, 0)), input_shape=(160, 320, 3)))
+    model.add(Lambda(lambda x: x / 127.5 - 1., input_shape=(90, 320, 3), output_shape=(90, 320, 3)))
+    model.add(Conv2D(filters=6, kernel_size=(3, 3), activation='relu', input_shape=(90, 320, 3)))
+    model.add(AveragePooling2D())
+    model.add(Conv2D(filters=16, kernel_size=(3, 3), activation='relu'))
+    model.add(AveragePooling2D())
+    model.add(Flatten())
+    model.add(Dense(units=120, activation='relu'))
+    model.add(Dense(units=84, activation='relu'))
+    model.add(Dense(units=10, activation='softmax'))
+    model.add(Dense(1))
+
+    model.compile(loss='mse', optimizer='adam')
+    # model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=2)
+    model.fit_generator(train_generator, steps_per_epoch=ceil(len(train_samples) / batch_size),
+                        validation_data=validation_generator,
+                        validation_steps=ceil(len(validation_samples) / batch_size),
+                        epochs=5, verbose=1)
+    model.save('model.h5')
+
+
+train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 # Set our batch size
 batch_size = 32
 # compile and train the model using the generator function
@@ -85,21 +115,23 @@ train_generator = generator(train_samples, batch_size=batch_size)
 validation_generator = generator(validation_samples, batch_size=batch_size)
 
 model = Sequential()
+model.add(Lambda(lambda x: x / 127.5 - 1., input_shape=(160, 320, 3)))
 model.add(Cropping2D(cropping=((50, 20), (0, 0)), input_shape=(160, 320, 3)))
-model.add(Lambda(lambda x: x / 127.5 - 1., input_shape=(90, 320, 3), output_shape=(90, 320, 3)))
-model.add(Conv2D(filters=6, kernel_size=(3, 3), activation='relu', input_shape=(90, 320, 3)))
-model.add(AveragePooling2D())
-model.add(Conv2D(filters=16, kernel_size=(3, 3), activation='relu'))
-model.add(AveragePooling2D())
+model.add(Conv2D(24, 5, 5, subsample=(2, 2), activation="relu"))
+model.add(Conv2D(36, 5, 5, subsample=(2, 2), activation="relu"))
+model.add(Conv2D(48, 5, 5, subsample=(2, 2), activation="relu"))
+model.add(Conv2D(64, 3, 3, activation="relu"))
+model.add(Conv2D(64, 3, 3, activation="relu"))
 model.add(Flatten())
-model.add(Dense(units=120, activation='relu'))
-model.add(Dense(units=84, activation='relu'))
-model.add(Dense(units=10, activation='softmax'))
+model.add(Dense(100))
+model.add(Dense(50))
+model.add(Dense(10))
 model.add(Dense(1))
 
 model.compile(loss='mse', optimizer='adam')
-# model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=2)
+
 model.fit_generator(train_generator, steps_per_epoch=ceil(len(train_samples) / batch_size),
-                    validation_data=validation_generator, validation_steps=ceil(len(validation_samples) / batch_size),
-                    epochs=5, verbose=1)
+                    validation_data=validation_generator,
+                    validation_steps=ceil(len(validation_samples) / batch_size),
+                    epochs=3, verbose=1)
 model.save('model.h5')
