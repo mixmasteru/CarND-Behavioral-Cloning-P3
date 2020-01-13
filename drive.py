@@ -15,6 +15,7 @@ from io import BytesIO
 from keras.models import load_model
 import h5py
 from keras import __version__ as keras_version
+from locale import atof, setlocale, LC_NUMERIC
 
 sio = socketio.Server()
 app = Flask(__name__)
@@ -63,7 +64,9 @@ def telemetry(sid, data):
         image_array = np.asarray(image)
         steering_angle = float(model.predict(image_array[None, :, :, :], batch_size=1))
 
-        throttle = controller.update(float(speed))
+        setlocale(LC_NUMERIC, 'de_DE.utf8')
+
+        throttle = controller.update(atof(speed))
 
         print(steering_angle, throttle)
         send_control(steering_angle, throttle)
