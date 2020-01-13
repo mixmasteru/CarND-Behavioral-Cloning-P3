@@ -2,17 +2,22 @@ import csv
 from math import ceil
 
 import imageio
+import matplotlib.pyplot as plt
 import numpy as np
+import sklearn
+import tensorflow as tf
 from keras.layers import Flatten, Dense, Conv2D, AveragePooling2D, Cropping2D
 from keras.layers import Lambda
 from keras.models import Sequential
-import sklearn
 from sklearn.model_selection import train_test_split
 
 lines = []
 images = []
 measurements = []
 correction = 0.2
+data_path = './data/IMG/'
+batch_size = 256
+epochs = 10
 
 with open('./data/driving_log.csv') as csvfile:
     reader = csv.reader(csvfile)
@@ -41,11 +46,28 @@ def generator(samples, batch_size=32):
             images = []
             angles = []
             for batch_sample in batch_samples:
-                name = './data/IMG/' + batch_sample[0].split('/')[-1]
-                center_image = imageio.imread(name)
+                name_c = data_path + batch_sample[0].split('/')[-1]
+                name_l = data_path + batch_sample[1].strip().split('/')[-1]
+                name_r = data_path + batch_sample[2].strip().split('/')[-1]
+
+                center_image = imageio.imread(name_c)
                 center_angle = float(batch_sample[3])
+                left_image = imageio.imread(name_l)
+                left_angle = float(batch_sample[3]) + correction
+                right_image = imageio.imread(name_r)
+                right_angle = float(batch_sample[3]) - correction
+
                 images.append(center_image)
                 angles.append(center_angle)
+                images.append(left_image)
+                angles.append(left_angle)
+                images.append(right_image)
+                angles.append(right_angle)
+                images.append(np.fliplr(left_image))
+                angles.append(-left_angle)
+                images.append(np.fliplr(right_image))
+                angles.append(-right_angle)
+
 
             # trim image to only see section with road
             X_train = np.array(images)
@@ -108,13 +130,13 @@ def lenet5_model():
 
 
 train_samples, validation_samples = train_test_split(lines, test_size=0.2)
-# Set our batch size
-batch_size = 32
+
 # compile and train the model using the generator function
 train_generator = generator(train_samples, batch_size=batch_size)
 validation_generator = generator(validation_samples, batch_size=batch_size)
 
 model = Sequential()
+# model.add(Lambda(lambda x: tf.image.rgb_to_grayscale(x), input_shape=(160, 320, 3)))
 model.add(Lambda(lambda x: x / 127.5 - 1., input_shape=(160, 320, 3)))
 model.add(Cropping2D(cropping=((50, 20), (0, 0)), input_shape=(160, 320, 3)))
 model.add(Conv2D(24, 5, 5, subsample=(2, 2), activation="relu"))
@@ -130,8 +152,20 @@ model.add(Dense(1))
 
 model.compile(loss='mse', optimizer='adam')
 
-model.fit_generator(train_generator, steps_per_epoch=ceil(len(train_samples) / batch_size),
-                    validation_data=validation_generator,
-                    validation_steps=ceil(len(validation_samples) / batch_size),
-                    epochs=3, verbose=1)
+history_object = model.fit_generator(train_generator,
+                                     steps_per_epoch=ceil(len(train_samples) / batch_size),
+                                     validation_data=validation_generator,
+                                     validation_steps=ceil(len(validation_samples) / batch_size),
+                                     epochs=epochs,
+                                     verbose=1)
 model.save('model.h5')
+
+print(history_object.history.keys())
+
+plt.plot(history_object.history['loss'])
+plt.plot(history_object.history['val_loss'])
+plt.title('model mean squared error loss')
+plt.ylabel('mean squared error loss')
+plt.xlabel('epoch')
+plt.legend(['training set', 'validation set'], loc='upper right')
+plt.savefig('img/error_loss.png')
