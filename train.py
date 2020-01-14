@@ -5,7 +5,6 @@ import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
-import tensorflow as tf
 from keras.layers import Flatten, Dense, Conv2D, AveragePooling2D, Cropping2D
 from keras.layers import Lambda
 from keras.models import Sequential
@@ -37,6 +36,13 @@ def add_img(img_path, measurement):
 
 
 def generator(samples, batch_size=32):
+    """
+    this generator is used to reduce the RAM usage by loading
+    the training data on the fly
+    :param samples:
+    :param batch_size:
+    :return:
+    """
     num_samples = len(samples)
     while 1:  # Loop forever so the generator never terminates
         sklearn.utils.shuffle(samples)
@@ -46,15 +52,17 @@ def generator(samples, batch_size=32):
             images = []
             angles = []
             for batch_sample in batch_samples:
+                # load images
                 name_c = data_path + batch_sample[0].split('/')[-1]
                 name_l = data_path + batch_sample[1].strip().split('/')[-1]
                 name_r = data_path + batch_sample[2].strip().split('/')[-1]
-
                 center_image = imageio.imread(name_c)
-                center_angle = float(batch_sample[3])
                 left_image = imageio.imread(name_l)
-                left_angle = float(batch_sample[3]) + correction
                 right_image = imageio.imread(name_r)
+
+                # load steering angle data, and correct it for left/right cam
+                center_angle = float(batch_sample[3])
+                left_angle = float(batch_sample[3]) + correction
                 right_angle = float(batch_sample[3]) - correction
 
                 images.append(center_image)
@@ -63,11 +71,11 @@ def generator(samples, batch_size=32):
                 angles.append(left_angle)
                 images.append(right_image)
                 angles.append(right_angle)
+                # also add flipped version of left/right images
                 images.append(np.fliplr(left_image))
                 angles.append(-left_angle)
                 images.append(np.fliplr(right_image))
                 angles.append(-right_angle)
-
 
             # trim image to only see section with road
             X_train = np.array(images)
@@ -76,6 +84,11 @@ def generator(samples, batch_size=32):
 
 
 def simple_model():
+    """
+    not used
+    :return:
+    """
+
     for line in lines:
         measurement = float(line[3])
         path = './data/'
@@ -98,6 +111,10 @@ def simple_model():
 
 
 def lenet5_model():
+    """
+    not used
+    :return:
+    """
     train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 
     ch, row, col = 3, 80, 320  # Trimmed image format
@@ -135,6 +152,7 @@ train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 train_generator = generator(train_samples, batch_size=batch_size)
 validation_generator = generator(validation_samples, batch_size=batch_size)
 
+# setup the convolution neural network
 model = Sequential()
 # model.add(Lambda(lambda x: tf.image.rgb_to_grayscale(x), input_shape=(160, 320, 3)))
 model.add(Lambda(lambda x: x / 127.5 - 1., input_shape=(160, 320, 3)))
@@ -151,6 +169,7 @@ model.add(Dense(10))
 model.add(Dense(1))
 
 model.compile(loss='mse', optimizer='adam')
+# plot_model(model, to_file='img/model.png', show_shapes=True, show_layer_names=True)
 
 history_object = model.fit_generator(train_generator,
                                      steps_per_epoch=ceil(len(train_samples) / batch_size),
@@ -164,8 +183,8 @@ print(history_object.history.keys())
 
 plt.plot(history_object.history['loss'])
 plt.plot(history_object.history['val_loss'])
-plt.title('model mean squared error loss')
-plt.ylabel('mean squared error loss')
+plt.title('error loss')
+plt.ylabel('error loss')
 plt.xlabel('epoch')
 plt.legend(['training set', 'validation set'], loc='upper right')
 plt.savefig('img/error_loss.png')
