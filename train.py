@@ -5,7 +5,8 @@ import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
-from keras.layers import Flatten, Dense, Conv2D, AveragePooling2D, Cropping2D
+from keras.callbacks import callbacks
+from keras.layers import Flatten, Dense, Conv2D, AveragePooling2D, Cropping2D, Dropout
 from keras.layers import Lambda
 from keras.models import Sequential
 from sklearn.model_selection import train_test_split
@@ -152,15 +153,21 @@ train_samples, validation_samples = train_test_split(lines, test_size=0.2)
 train_generator = generator(train_samples, batch_size=batch_size)
 validation_generator = generator(validation_samples, batch_size=batch_size)
 
+es_callback = callbacks.EarlyStopping(monitor='val_loss', patience=3)
+
 # setup the convolution neural network
 model = Sequential()
 # model.add(Lambda(lambda x: tf.image.rgb_to_grayscale(x), input_shape=(160, 320, 3)))
 model.add(Lambda(lambda x: x / 127.5 - 1., input_shape=(160, 320, 3)))
 model.add(Cropping2D(cropping=((50, 20), (0, 0)), input_shape=(160, 320, 3)))
 model.add(Conv2D(24, 5, 5, subsample=(2, 2), activation="relu"))
+model.add(Dropout(0.4))
 model.add(Conv2D(36, 5, 5, subsample=(2, 2), activation="relu"))
+model.add(Dropout(0.4))
 model.add(Conv2D(48, 5, 5, subsample=(2, 2), activation="relu"))
+model.add(Dropout(0.4))
 model.add(Conv2D(64, 3, 3, activation="relu"))
+model.add(Dropout(0.4))
 model.add(Conv2D(64, 3, 3, activation="relu"))
 model.add(Flatten())
 model.add(Dense(100))
@@ -176,7 +183,8 @@ history_object = model.fit_generator(train_generator,
                                      validation_data=validation_generator,
                                      validation_steps=ceil(len(validation_samples) / batch_size),
                                      epochs=epochs,
-                                     verbose=1)
+                                     verbose=1,
+                                     callbacks=[es_callback])
 model.save('model.h5')
 
 print(history_object.history.keys())
