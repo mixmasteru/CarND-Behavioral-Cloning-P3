@@ -61,12 +61,15 @@ I used a network architecture created by [nvidia](https://devblogs.nvidia.com/de
 
  (train.py lines 127-138) 
 
+#### 2. Attempts to reduce overfitting in the model
 
-#### 2. Model parameter tuning
+The model contains dropout layers in order to reduce overfitting (train.py lines 170 - 176). 
+
+#### 3. Model parameter tuning
 
 The model used an adam optimizer, so the learning rate was not tuned manually (model.py line 140).
 
-#### 3. Appropriate training data
+#### 4. Appropriate training data
 
 I used the provided data set. 
 
