@@ -37,7 +37,7 @@ netifaces==0.10.6
 numpy==1.17.4
 opencv-contrib-python==4.1.1.26
 pandas==0.25.3
-Pillow==6.2.1
+Pillow==8.1.1
 proglog==0.1.9
 protobuf==3.11.1
 pydot==1.4.1
