@@ -35,7 +35,7 @@ moviepy==1.0.1
 multidict==4.7.4
 netifaces==0.10.6
 numpy==1.17.4
-opencv-contrib-python==4.1.1.26
+opencv-contrib-python==4.2.0.32
 pandas==0.25.3
 Pillow==6.2.1
 proglog==0.1.9
